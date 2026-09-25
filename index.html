@@ -4,7 +4,784 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<title>공부 감독관</title><!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
 <title>공부 감독관</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=IBM+Plex+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#E9EDF2; --panel:#F7F9FB; --ink:#1C2A44; --muted:#5B6778;
+    --line:#C9D1DC; --lamp:#F2B632; --alert:#D8453B; --ok:#2E8B6A;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"IBM Plex Sans KR",system-ui,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+    font-size:15px;line-height:1.55;
+    padding:env(safe-area-inset-top,0) env(safe-area-inset-right,0) env(safe-area-inset-bottom,0) env(safe-area-inset-left,0);
+    -webkit-text-size-adjust:100%}
+  header{padding:20px 24px 8px;display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+  header h1{margin:0;font-family:"Black Han Sans",sans-serif;font-weight:400;font-size:26px;letter-spacing:.5px}
+  header p{margin:0;color:var(--muted);font-size:14px}
+  .banner{margin:4px 24px 0;padding:10px 14px;border-radius:10px;background:#DCE6F2;font-size:14px}
+  main{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(300px,1fr);gap:20px;padding:12px 24px 32px;max-width:1200px}
+  @media (max-width:860px){main{grid-template-columns:1fr;padding:12px 14px 28px}.banner{margin:4px 14px 0}}
+  .left{align-self:start;position:sticky;top:12px}
+  @media (max-width:860px){.left{position:static}}
+
+  .stage{background:var(--ink);border-radius:14px;overflow:hidden}
+  .cam{position:relative;aspect-ratio:4/3;background:#243453}
+  .cam video,.cam canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+  .cam .empty{position:absolute;inset:0;display:grid;place-items:center;color:#A9B6CA;text-align:center;padding:20px}
+  .status{padding:18px 22px 20px;color:var(--lamp);transition:background .2s}
+  .status .word{font-family:"Black Han Sans",sans-serif;font-size:clamp(40px,7vw,68px);line-height:1.05}
+  .status .sub{color:#C8D2E1;margin-top:6px;min-height:1.5em}
+  .status.warn{background:#3A3420}
+  .status.alarm{background:var(--alert);color:#fff}
+  .status.alarm .sub{color:#FFE3E0}
+  .status.rest{background:#27405F;color:#BFD6F2}
+  @media (prefers-reduced-motion:no-preference){
+    .status.alarm{animation:blink 0.6s steps(2) infinite}
+    @keyframes blink{50%{background:#A8332B}}
+  }
+
+  .controls{display:flex;gap:10px;flex-wrap:wrap;padding:14px 0 0}
+  button{font:inherit;font-weight:500;border:1.5px solid var(--ink);background:var(--ink);color:#fff;
+    padding:10px 16px;border-radius:10px;cursor:pointer;touch-action:manipulation}
+  button.ghost{background:transparent;color:var(--ink)}
+  button.danger{background:var(--alert);border-color:var(--alert);font-size:18px;padding:14px 22px}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  button:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid var(--lamp);outline-offset:2px}
+  .sessinfo{margin:10px 0 0;color:var(--muted);min-height:1.5em;font-variant-numeric:tabular-nums}
+
+  .stats{display:grid;grid-template-columns:repeat(6,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-top:12px}
+  .stats div{background:var(--panel);padding:10px 12px}
+  .stats b{display:block;font-size:22px;font-variant-numeric:tabular-nums}
+  .stats span{color:var(--muted);font-size:13px}
+  @media (max-width:560px){.stats{grid-template-columns:repeat(3,1fr)}}
+
+  aside section{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:14px}
+  aside h2{font-size:16px;margin:0 0 10px}
+  label.row{display:grid;grid-template-columns:1fr auto;gap:4px 10px;align-items:center;margin:10px 0}
+  label.row input[type=range]{grid-column:1/-1;width:100%;accent-color:var(--ink)}
+  label.row output{font-variant-numeric:tabular-nums;color:var(--muted)}
+  select{width:100%;font:inherit;padding:9px 10px;border:1.5px solid var(--line);border-radius:9px;background:#fff;color:var(--ink);margin:4px 0 10px}
+  .hint{color:var(--muted);font-size:13px;margin:6px 0 0}
+  .warnbox{color:var(--alert);font-size:13px;margin:6px 0 0}
+  .check{display:flex;gap:8px;align-items:center;margin:8px 0}
+
+  .seg{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+  .seg label{position:relative;border:1.5px solid var(--line);border-radius:9px;padding:6px 12px;cursor:pointer;background:#fff}
+  .seg input{position:absolute;opacity:0;pointer-events:none}
+  .seg label:has(input:checked){background:var(--ink);border-color:var(--ink);color:#fff}
+  .seg label:has(input:focus-visible){outline:3px solid var(--lamp);outline-offset:2px}
+  .trio{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+  .trio input{width:64px;font:inherit;font-size:16px;padding:8px;border:1.5px solid var(--line);border-radius:9px;text-align:right;background:#fff;color:var(--ink)}
+  .btnrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+
+  .meter{height:8px;background:#DDE3EA;border-radius:4px;overflow:hidden;margin:4px 0 10px;position:relative}
+  .meter i{display:block;height:100%;width:0;background:var(--ink)}
+  .meter em{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--alert)}
+  .meterlabel{display:flex;justify-content:space-between;font-size:13px;color:var(--muted)}
+  ol.log{list-style:none;padding:0;margin:0;max-height:220px;overflow:auto;font-size:14px}
+  ol.log li{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line)}
+  ol.log li:last-child{border-bottom:0}
+  ol.log time{color:var(--muted);font-variant-numeric:tabular-nums}
+  .chaos{position:fixed;inset:0;z-index:50;display:grid;place-content:center;justify-items:center;gap:18px;
+    text-align:center;padding:24px;background:var(--alert);color:#fff;overflow:hidden}
+  .chaos-word{font-family:"Black Han Sans",sans-serif;font-size:clamp(56px,14vw,170px);line-height:1}
+  .chaos-sub{font-size:clamp(18px,3vw,28px);font-weight:700}
+  .chaos .danger{font-size:28px;padding:18px 36px;background:#fff;color:var(--alert);border-color:#fff}
+  @media (prefers-reduced-motion:no-preference){
+    /* 번쩍임은 초당 3회 미만으로 제한 (광과민성 발작 기준) */
+    .chaos{animation:strobe .8s steps(1,end) infinite}
+    .chaos-word{animation:shake .14s linear infinite}
+    @keyframes strobe{0%{background:#D8453B;color:#fff}50%{background:#F2B632;color:#1C2A44}}
+    @keyframes shake{
+      0%{transform:translate(0,0) rotate(0)} 25%{transform:translate(-14px,8px) rotate(-4deg)}
+      50%{transform:translate(12px,-10px) rotate(3deg)} 75%{transform:translate(-8px,-6px) rotate(-2deg)}
+      100%{transform:translate(0,0) rotate(0)}}
+  }
+  [hidden]{display:none !important}
+</style>
+</head>
+<body>
+<header>
+  <h1>공부 감독관</h1>
+  <p>카메라로 졸음, 폰 사용, 자리 비움, 고개 돌림을 감지해 경보를 울립니다. 영상은 이 기기 밖으로 나가지 않습니다.</p>
+</header>
+<div class="chaos" id="chaos" hidden role="alert">
+  <div class="chaos-word" id="chaosWord"></div>
+  <div class="chaos-sub" id="chaosSub"></div>
+  <button id="chaosOff" class="danger" hidden>알람 끄기</button>
+</div>
+<div class="banner" id="iosBanner" hidden>아이패드에서는 Safari를 앞에 띄워 두세요. 화면은 자동으로 켜진 상태로 유지됩니다. 소리는 연결된 이어폰이나 블루투스 스피커로 자동 출력되고, 연결이 없으면 내장 스피커로 나옵니다. 볼륨은 기기 볼륨 버튼으로 조절하세요.</div>
+
+<main>
+  <div class="left">
+    <div class="stage">
+      <div class="cam">
+        <video id="video" playsinline muted autoplay></video>
+        <canvas id="overlay"></canvas>
+        <div class="empty" id="empty">‘감독 시작’을 누르면 카메라가 켜집니다.<br>얼굴과 책상이 함께 보이게 놓아 주세요.</div>
+      </div>
+      <div class="status" id="status">
+        <div class="word" id="word">대기 중</div>
+        <div class="sub" id="sub">감지 모델은 시작할 때 불러옵니다.</div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button id="wakeOffBtn" class="danger" hidden>알람 끄기</button>
+      <button id="startBtn">감독 시작</button>
+      <button id="restBtn" class="ghost" disabled>5분 휴식</button>
+      <button id="stopBtn" class="ghost" disabled>감독 끝내기</button>
+    </div>
+    <p class="sessinfo" id="sessInfo"></p>
+
+    <div class="stats">
+      <div><b id="focusTime">0:00</b><span>집중 시간</span></div>
+      <div><b id="cnt-sleep">0</b><span>졸음</span></div>
+      <div><b id="cnt-phone">0</b><span>폰</span></div>
+      <div><b id="cnt-turn">0</b><span>고개 돌림</span></div>
+      <div><b id="cnt-away">0</b><span>자리 비움</span></div>
+      <div><b id="cnt-facedown">0</b><span>엎드림</span></div>
+    </div>
+  </div>
+
+  <aside>
+    <section>
+      <h2>감독 시간</h2>
+      <div class="seg" role="radiogroup" aria-label="감독 시간 방식">
+        <label><input type="radio" name="sessMode" value="none"> 제한 없음</label>
+        <label><input type="radio" name="sessMode" value="dur"> 시간 동안</label>
+        <label><input type="radio" name="sessMode" value="until"> 시각까지</label>
+      </div>
+      <div class="trio" id="sessTrio">
+        <input id="sessH" type="number" inputmode="numeric" min="0" max="23"><span id="sessHU">시간</span>
+        <input id="sessM" type="number" inputmode="numeric" min="0" max="59"><span>분</span>
+        <input id="sessS" type="number" inputmode="numeric" min="0" max="59"><span>초</span>
+      </div>
+      <p class="hint" id="sessHint"></p>
+    </section>
+
+    <section>
+      <h2>수면 타이머</h2>
+      <div class="seg" role="radiogroup" aria-label="수면 타이머 방식">
+        <label><input type="radio" name="napMode" value="dur"> 시간 동안</label>
+        <label><input type="radio" name="napMode" value="until"> 시각까지</label>
+      </div>
+      <div class="trio">
+        <input id="napH" type="number" inputmode="numeric" min="0" max="23"><span id="napHU">시간</span>
+        <input id="napM" type="number" inputmode="numeric" min="0" max="59"><span>분</span>
+        <input id="napS" type="number" inputmode="numeric" min="0" max="59"><span>초</span>
+      </div>
+      <p class="hint" id="napHint"></p>
+      <label for="sink3" style="display:block;margin-top:10px">알람 출력 장치</label>
+      <select id="sink3"></select>
+      <div class="btnrow">
+        <button id="napBtn" type="button">수면 시작</button>
+        <button id="napCancelBtn" class="ghost" type="button" hidden>수면 취소</button>
+        <button id="napTestBtn" class="ghost" type="button">알람 시험</button>
+      </div>
+      <p class="hint">자는 동안에는 졸음 경보가 울리지 않고, 정한 시간이 되면 알람 끄기를 누를 때까지 울립니다.</p>
+      <p class="warnbox" id="napWarn" hidden></p>
+    </section>
+
+    <section>
+      <h2>경보 소리</h2>
+      <label for="sink1">주 출력 장치</label>
+      <select id="sink1"></select>
+      <label for="sink2">보조 출력 장치 (함께 울림)</label>
+      <select id="sink2"></select>
+      <button id="findBtn" class="ghost" type="button">스피커·이어폰 찾기</button>
+      <p class="hint" id="findHint">장치 이름을 보려면 브라우저가 마이크 권한을 한 번 묻습니다. 녹음은 하지 않습니다. 이어폰이 빠질 때를 대비해 보조 출력을 내장 스피커로 두면 좋습니다.</p>
+      <p class="warnbox" id="sinkWarn" hidden></p>
+      <label class="row" id="volRow">볼륨 <output id="volOut"></output>
+        <input type="range" id="volume" min="0.1" max="1" step="0.05"></label>
+      <button id="testBtn" class="ghost" type="button">소리 시험</button>
+    </section>
+
+    <section>
+      <h2>감지 설정</h2>
+      <label class="row">눈 감고 이만큼 지나면 졸음 <output id="sleepOut"></output>
+        <input type="range" id="sleepSec" min="1" max="15" step="1"></label>
+      <label class="row">책 보는 자세에서 졸음 판정 <output id="readSleepOut"></output>
+        <input type="range" id="readSleepSec" min="4" max="60" step="1"></label>
+      <label class="row">폰이 이만큼 보이면 경보 <output id="phoneOut"></output>
+        <input type="range" id="phoneSec" min="1" max="15" step="1"></label>
+      <label class="row">고개를 이만큼 돌리고 있으면 경보 <output id="turnOut"></output>
+        <input type="range" id="turnSec" min="2" max="30" step="1"></label>
+      <label class="row">화면에서 이만큼 사라지면 경보 <output id="awayOut"></output>
+        <input type="range" id="awaySec" min="3" max="120" step="1"></label>
+      <label class="row">고개 숙인 채 얼굴이 안 보이면 엎드림 <output id="facedownOut"></output>
+        <input type="range" id="facedownSec" min="5" max="180" step="5"></label>
+      <label class="check"><input type="checkbox" id="usePhone"> 폰 감지 사용</label>
+      <label class="check"><input type="checkbox" id="useFlash"> 경보 때 화면 전체 번쩍임</label>
+    </section>
+
+    <section>
+      <h2>민감도 맞추기</h2>
+      <div class="meterlabel"><span>눈 감김</span><span id="eyeVal">–</span></div>
+      <div class="meter"><i id="eyeBar"></i><em id="eyeMark"></em></div>
+      <label class="row">눈 감김 기준 <output id="eyeOut"></output>
+        <input type="range" id="eyeTh" min="0.3" max="0.9" step="0.05"></label>
+      <div class="meterlabel"><span>고개 돌림</span><span id="yawVal">–</span></div>
+      <div class="meter"><i id="yawBar"></i><em id="yawMark"></em></div>
+      <label class="row">고개 돌림 기준 <output id="yawOut"></output>
+        <input type="range" id="yawTh" min="0.1" max="0.4" step="0.02"></label>
+      <div class="meterlabel"><span>고개 숙임</span><span id="bowVal">–</span></div>
+      <div class="meter"><i id="bowBar"></i><em id="bowMark"></em></div>
+      <label class="row">이만큼 숙이면 책 보는 자세 <output id="downOut"></output>
+        <input type="range" id="downTh" min="0.1" max="0.8" step="0.05"></label>
+      <div class="meterlabel"><span>움직임</span><span id="motVal">–</span></div>
+      <div class="meter"><i id="motBar"></i><em id="motMark"></em></div>
+      <label class="row">이보다 덜 움직이면 멈춘 것 <output id="stillOut"></output>
+        <input type="range" id="stillTh" min="0.05" max="0.6" step="0.01"></label>
+      <button id="calibBtn" class="ghost" type="button" disabled>책 보는 자세 기억하기 (5초)</button>
+      <p class="hint" id="calibHint">감독을 시작한 뒤, 평소처럼 책을 읽거나 필기하면서 누르세요. 그 자세를 기준으로 ‘책 보는 중’과 ‘졸음’을 구분합니다.</p>
+      <p class="hint">책 보는 자세에서는 눈이 감긴 것처럼 보여도 바로 졸음으로 치지 않고, 눈 감김과 함께 머리와 눈동자 움직임이 멈춰 있을 때만 졸음으로 판단합니다.</p>
+    </section>
+
+    <section>
+      <h2>경보 기록</h2>
+      <ol class="log" id="log"><li><span>아직 경보가 없습니다.</span></li></ol>
+    </section>
+  </aside>
+</main>
+
+<script type="module">
+import { FilesetResolver, FaceLandmarker, ObjectDetector }
+  from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
+
+const $ = id => document.getElementById(id);
+const video = $("video"), canvas = $("overlay"), ctx = canvas.getContext("2d");
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+const canSink = "setSinkId" in HTMLMediaElement.prototype;
+
+/* ---------- 설정 저장 ---------- */
+const S = { sleepSec:4, phoneSec:2, turnSec:6, awaySec:10, eyeTh:0.55, yawTh:0.2,
+  readSleepSec:12, facedownSec:30, downTh:0.35, stillTh:0.15, readEyeTh:null,
+  volume:0.9, usePhone:true, useFlash:true, sink1:"default", sink2:"", sink3:"",
+  sessMode:"none", sessH:1, sessM:0, sessS:0, napMode:"dur", napH:0, napM:20, napS:0 };
+try { Object.assign(S, JSON.parse(localStorage.getItem("studyGuard") || "{}")); } catch {}
+const save = () => { try { localStorage.setItem("studyGuard", JSON.stringify(S)); } catch {} };
+
+if (isIOS) { $("iosBanner").hidden = false; $("volRow").hidden = true; }
+
+const sliders = { sleepSec:["sleepOut",v=>v+"초"], phoneSec:["phoneOut",v=>v+"초"],
+  turnSec:["turnOut",v=>v+"초"], awaySec:["awayOut",v=>v+"초"],
+  eyeTh:["eyeOut",v=>Math.round(v*100)+"%"], yawTh:["yawOut",v=>Math.round(v*100)+"%"],
+  readSleepSec:["readSleepOut",v=>v+"초"], facedownSec:["facedownOut",v=>v+"초"],
+  downTh:["downOut",v=>Math.round(v*100)+"%"], stillTh:["stillOut",v=>Math.round(v*100)+"%"],
+  volume:["volOut",v=>Math.round(v*100)+"%"] };
+for (const [k,[out,fmt]] of Object.entries(sliders)) {
+  const el = $(k); el.value = S[k]; $(out).textContent = fmt(S[k]);
+  el.addEventListener("input", () => { S[k] = +el.value; $(out).textContent = fmt(S[k]); save();
+    if (k === "volume") allAudio().forEach(a => a.volume = S.volume);
+    updateMarks(); });
+}
+$("usePhone").checked = S.usePhone;
+$("usePhone").addEventListener("change", e => { S.usePhone = e.target.checked; save(); });
+$("useFlash").checked = S.useFlash;
+$("useFlash").addEventListener("change", e => { S.useFlash = e.target.checked; save(); });
+function updateMarks(){
+  $("eyeMark").style.left = (S.eyeTh*100)+"%";
+  $("yawMark").style.left = Math.min(100, S.yawTh/0.5*100)+"%";
+  $("bowMark").style.left = (S.downTh*100)+"%";
+  $("motMark").style.left = (S.stillTh*100)+"%";
+}
+updateMarks();
+
+/* ---------- 시간 선택 ---------- */
+const fmtTime = ms => {
+  ms = Math.max(0, ms);
+  const s = Math.floor(ms/1000), h = Math.floor(s/3600), m = Math.floor(s%3600/60), x = s%60;
+  return (h ? h+":"+String(m).padStart(2,"0") : m) + ":" + String(x).padStart(2,"0");
+};
+const fmtClock = ms => {
+  const d = new Date(ms), today = new Date();
+  const day = d.toDateString() === today.toDateString() ? "오늘" : "내일";
+  return `${day} ${d.toLocaleTimeString("ko-KR")}`;
+};
+function mode(p){ return document.querySelector(`input[name=${p}Mode]:checked`)?.value; }
+function readEnd(p){
+  const m = mode(p);
+  if (m === "none") return {end:null};
+  const h = +$(p+"H").value || 0, mi = +$(p+"M").value || 0, s = +$(p+"S").value || 0;
+  if (h < 0 || mi < 0 || s < 0 || mi > 59 || s > 59) return {err:"분과 초는 0~59 사이로 입력하세요."};
+  if (m === "dur"){
+    const ms = ((h*60 + mi)*60 + s)*1000;
+    if (ms <= 0) return {err:"시간을 1초 이상으로 정하세요."};
+    return {end: Date.now() + ms};
+  }
+  if (h > 23) return {err:"시각은 0~23시로 입력하세요."};
+  const d = new Date(); d.setHours(h, mi, s, 0);
+  if (d.getTime() <= Date.now()) d.setDate(d.getDate() + 1);
+  return {end: d.getTime()};
+}
+function setupPicker(p){
+  document.querySelectorAll(`input[name=${p}Mode]`).forEach(r => {
+    r.checked = r.value === S[p+"Mode"];
+    r.addEventListener("change", () => { S[p+"Mode"] = r.value; save(); refreshPicker(p); });
+  });
+  for (const u of ["H","M","S"]){
+    const el = $(p+u); el.value = S[p+u];
+    el.addEventListener("input", () => { S[p+u] = +el.value || 0; save(); refreshPicker(p); });
+  }
+  refreshPicker(p);
+}
+function refreshPicker(p){
+  const m = mode(p);
+  $(p+"HU").textContent = m === "until" ? "시" : "시간";
+  const trio = $(p+"H").parentElement; trio.hidden = m === "none";
+  const r = readEnd(p);
+  $(p+"Hint").textContent = m === "none" ? "끝내기를 누를 때까지 감독합니다."
+    : r.err ? r.err
+    : m === "dur" ? `지금 시작하면 ${fmtClock(r.end)}에 끝납니다.`
+    : `${fmtClock(r.end)}까지 ${p === "nap" ? "잡니다" : "감독합니다"}. (24시간제)`;
+}
+setupPicker("sess"); setupPicker("nap");
+
+/* ---------- 소리 ---------- */
+function makeWav(sampleFn, dur){
+  const sr = 22050, n = Math.floor(sr*dur), buf = new ArrayBuffer(44 + n*2), v = new DataView(buf);
+  const w = (o,s) => [...s].forEach((c,i) => v.setUint8(o+i, c.charCodeAt(0)));
+  w(0,"RIFF"); v.setUint32(4,36+n*2,true); w(8,"WAVE"); w(12,"fmt ");
+  v.setUint32(16,16,true); v.setUint16(20,1,true); v.setUint16(22,1,true);
+  v.setUint32(24,sr,true); v.setUint32(28,sr*2,true); v.setUint16(32,2,true); v.setUint16(34,16,true);
+  w(36,"data"); v.setUint32(40,n*2,true);
+  for (let i=0;i<n;i++) v.setInt16(44+i*2, Math.max(-1,Math.min(1,sampleFn(i/sr)))*32767, true);
+  return URL.createObjectURL(new Blob([buf],{type:"audio/wav"}));
+}
+// 파형 도구: 사각파와 톱니파는 같은 볼륨에서 사인파보다 훨씬 크게 들립니다
+const sq = ph => (ph % 1) < 0.5 ? 1 : -1;
+const saw = ph => 2*(ph % 1) - 1;
+const clip = v => Math.max(-1, Math.min(1, v));
+function lcg(seed){ let s = seed; return () => ((s = (s*1664525 + 1013904223) >>> 0) / 4294967296)*2 - 1; }
+
+// 딴짓 경보: 흔들리는 사이렌 + 초고속 삐삐 + 잡음 폭발, 일부러 찌그러뜨려 최대 음량
+function chaosAlarm(){
+  let pA = 0, pB = 0; const noise = lcg(7), sr = 22050;
+  return t => {
+    const fA = 1200 + 500*Math.sin(2*Math.PI*7*t) + 300*Math.sin(2*Math.PI*1.3*t);
+    pA += fA/sr;
+    const beepSlot = Math.floor(t/0.06), gate = Math.floor(t/0.12) % 2 === 0;
+    const fB = [2400, 3100, 1900, 2800][beepSlot % 4];
+    pB += fB/sr;
+    const burst = (t % 1) > 0.45 && (t % 1) < 0.6;
+    const v = 0.8*sq(pA) + (gate ? 0.6*saw(pB) : 0) + (burst ? 0.9*noise() : 0);
+    return clip(v*1.8);
+  };
+}
+// 수면 알람: 위로 치솟는 휘파람 + 두 음이 번갈아 울부짖는 경적
+function chaosWake(){
+  let pA = 0, pB = 0; const noise = lcg(42), sr = 22050;
+  return t => {
+    const x = t % 0.3, fA = 350 + 2200*(x/0.3)**1.5;
+    pA += fA/sr;
+    const fB = Math.floor(t/0.15) % 2 ? 1500 : 950;
+    pB += fB/sr;
+    const honk = Math.floor(t/0.5) % 2 === 0;
+    const v = 0.8*saw(pA) + (honk ? 0.8*sq(pB) : 0) + ((t % 0.3) < 0.03 ? noise() : 0);
+    return clip(v*1.8);
+  };
+}
+const alarmUrl = makeWav(chaosAlarm(), 2.0);
+const wakeUrl = makeWav(chaosWake(), 2.0);
+
+const alarms = [new Audio(alarmUrl), new Audio(alarmUrl)];
+const napAudio = new Audio(wakeUrl);
+const allAudio = () => [...alarms, napAudio];
+allAudio().forEach(a => { a.loop = true; a.volume = S.volume; a.preload = "auto"; });
+
+function primeAudio(){ // 아이패드는 버튼을 누를 때 한 번 재생해 둬야 나중에 소리가 납니다
+  allAudio().forEach(a => {
+    if (!a.paused) return;
+    a.muted = true;
+    a.play().then(() => { a.pause(); a.currentTime = 0; a.muted = false; }).catch(() => { a.muted = false; });
+  });
+}
+let alarmOn = false;
+function startAlarm(){
+  alarms.forEach((a,i) => { if (i === 1 && (!S.sink2 || !canSink)) return; if (a.paused) a.play().catch(()=>{}); });
+}
+function stopAlarm(){ alarms.forEach(a => { if (!a.paused){ a.pause(); a.currentTime = 0; } }); }
+function playFor(a, ms){ a.play().catch(()=>{}); setTimeout(() => { if (!(a === napAudio ? napRinging : alarmOn)){ a.pause(); a.currentTime = 0; } }, ms); }
+
+$("testBtn").addEventListener("click", () => { primeAudio(); startAlarm(); setTimeout(() => { if (!alarmOn) stopAlarm(); }, 2000); });
+$("napTestBtn").addEventListener("click", () => { primeAudio(); playFor(napAudio, 2600); });
+
+/* ---------- 출력 장치 ---------- */
+function tag(label){
+  const s = (label||"").toLowerCase();
+  if (!s) return "알 수 없음";
+  if (/bluetooth|airpods|buds|headphone|headset|earphone|이어폰|헤드폰|헤드셋|usb|hdmi|display|외부/.test(s)) return "외부";
+  if (/built-in|internal|speaker|스피커|내장|macbook|realtek/.test(s)) return "내장";
+  return "기타";
+}
+async function refreshOutputs(){
+  if (!canSink){
+    for (const id of ["sink1","sink2","sink3"]){
+      const sel = $(id); sel.innerHTML = "";
+      sel.add(new Option(isIOS ? "기기 기본 출력 (연결된 이어폰·스피커 자동)" : "시스템 기본 출력", ""));
+      sel.disabled = true;
+    }
+    $("findBtn").hidden = true;
+    $("findHint").textContent = isIOS
+      ? "아이패드에서는 웹페이지가 출력 장치를 직접 고를 수 없습니다. 블루투스 이어폰이나 스피커를 연결하면 그쪽으로, 연결을 끊으면 내장 스피커로 울립니다."
+      : "이 브라우저는 출력 장치 선택을 지원하지 않습니다. Chrome이나 Edge를 쓰세요.";
+    return;
+  }
+  let devs = [];
+  try { devs = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === "audiooutput"); } catch {}
+  const conf = [["sink1", false], ["sink2", true], ["sink3", false]];
+  for (const [id, none] of conf){
+    const sel = $(id); sel.innerHTML = "";
+    if (none) sel.add(new Option("사용 안 함", ""));
+    if (!devs.length) sel.add(new Option("시스템 기본 출력", "default"));
+    devs.forEach((d,i) => sel.add(new Option(`[${tag(d.label)}] ${d.label || "출력 장치 "+(i+1)}`, d.deviceId)));
+  }
+  const ids = devs.map(d => d.deviceId);
+  const firstExt = devs.find(d => tag(d.label) === "외부")?.deviceId;
+  $("sink1").value = ids.includes(S.sink1) ? S.sink1 : ($("sink1").options[0]?.value || "default");
+  $("sink2").value = ids.includes(S.sink2) ? S.sink2 : "";
+  $("sink3").value = ids.includes(S.sink3) ? S.sink3 : (firstExt || $("sink3").options[0]?.value || "default");
+  await applySinks();
+}
+async function applySinks(){
+  if (!canSink) return;
+  const pairs = [[alarms[0], $("sink1").value], [alarms[1], $("sink2").value], [napAudio, $("sink3").value]];
+  for (const [a, id] of pairs){
+    if (!id) continue;
+    try { await a.setSinkId(id); $("sinkWarn").hidden = true; }
+    catch(e){ $("sinkWarn").hidden = false; $("sinkWarn").textContent = "출력 장치를 바꾸지 못했습니다: " + e.message; }
+  }
+}
+for (const id of ["sink1","sink2","sink3"]){
+  $(id).addEventListener("change", async e => {
+    S[id] = e.target.value; save();
+    if (id === "sink2" && !S.sink2) alarms[1].pause();
+    await applySinks();
+  });
+}
+$("findBtn").addEventListener("click", async () => {
+  try { const s = await navigator.mediaDevices.getUserMedia({audio:true}); s.getTracks().forEach(t => t.stop()); }
+  catch { $("sinkWarn").hidden = false; $("sinkWarn").textContent = "마이크 권한이 거부되어 장치 이름을 볼 수 없습니다. 주소창의 권한 설정에서 허용하세요."; }
+  refreshOutputs();
+});
+navigator.mediaDevices?.addEventListener?.("devicechange", refreshOutputs);
+refreshOutputs();
+
+/* ---------- 화면 꺼짐 방지 (아이패드 포함) ---------- */
+let wakeLock = null;
+async function keepAwake(on){
+  try {
+    if (on && !wakeLock && "wakeLock" in navigator){
+      wakeLock = await navigator.wakeLock.request("screen");
+      wakeLock.addEventListener("release", () => { wakeLock = null; });
+    } else if (!on && wakeLock){ await wakeLock.release(); wakeLock = null; }
+  } catch {}
+}
+const busy = () => running || napEnd || napRinging;
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && busy()) keepAwake(true); });
+
+/* ---------- 감지 ---------- */
+const COND = {
+  phone:{word:"폰을 보고 있어요", short:"폰", sec:()=>S.phoneSec},
+  sleep:{word:"졸고 있어요", short:"졸음", sec:()=>reading ? S.readSleepSec : S.sleepSec},
+  facedown:{word:"엎드려 있어요", short:"엎드림", sec:()=>S.facedownSec},
+  turn:{word:"딴 데 보고 있어요", short:"고개 돌림", sec:()=>S.turnSec},
+  away:{word:"자리에 없어요", short:"자리 비움", sec:()=>S.awaySec},
+};
+const ORDER = ["phone","sleep","facedown","turn","away"];
+const st = Object.fromEntries(ORDER.map(k => [k,{since:null,active:false,count:0}]));
+
+let face = null, objDet = null, stream = null, timer = null, running = false;
+let lastTick = 0, lastObj = 0, phones = [], focusMs = 0, restUntil = 0;
+let sessEnd = null, napEnd = null, napRinging = false, curReason = null;
+const logs = [];
+// 자세 추적 상태
+let reading = false, prevPose = null, motion = 0, lastSeen = null, calib = null;
+
+async function loadModels(){
+  const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm");
+  const make = async (Cls, opts) => {
+    try { return await Cls.createFromOptions(vision, {...opts, baseOptions:{...opts.baseOptions, delegate:"GPU"}}); }
+    catch { return await Cls.createFromOptions(vision, {...opts, baseOptions:{...opts.baseOptions, delegate:"CPU"}}); }
+  };
+  face = await make(FaceLandmarker, {
+    baseOptions:{modelAssetPath:"https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task"},
+    runningMode:"VIDEO", numFaces:1, outputFaceBlendshapes:true });
+  objDet = await make(ObjectDetector, {
+    baseOptions:{modelAssetPath:"https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/float16/1/efficientdet_lite0.tflite"},
+    runningMode:"VIDEO", scoreThreshold:0.35, maxResults:3, categoryAllowlist:["cell phone"] });
+}
+
+function setStatus(cls, word, sub){
+  $("status").className = "status " + cls;
+  $("word").textContent = word; $("sub").textContent = sub;
+}
+function addLog(k){
+  logs.unshift({k, t:new Date()}); logs.length = Math.min(logs.length, 50);
+  $("log").innerHTML = logs.map(l => `<li><span>${COND[l.k].short}</span><time>${l.t.toLocaleTimeString("ko-KR")}</time></li>`).join("");
+  $("cnt-"+k).textContent = st[k].count;
+}
+function resetConds(){ ORDER.forEach(k => { st[k].since = null; st[k].active = false; }); }
+function clearMeters(){
+  $("eyeVal").textContent = "–"; $("yawVal").textContent = "–";
+  $("eyeBar").style.width = "0"; $("yawBar").style.width = "0";
+  $("bowVal").textContent = "–"; $("motVal").textContent = "–";
+  $("bowBar").style.width = "0"; $("motBar").style.width = "0";
+  reading = false; prevPose = null;
+}
+
+function tick(){
+  if (!running || video.readyState < 2) return;
+  const now = performance.now(), dt = lastTick ? now - lastTick : 0; lastTick = now;
+
+  if (napEnd || napRinging || Date.now() < restUntil){
+    alarmOn = false; stopAlarm(); resetConds(); clearMeters();
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    return; // 상태 표시는 clockTick이 담당
+  }
+  if (restUntil){ restUntil = 0; $("restBtn").textContent = "5분 휴식"; }
+
+  if (canvas.width !== video.videoWidth){ canvas.width = video.videoWidth; canvas.height = video.videoHeight; }
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  const raw = {phone:false, sleep:false, facedown:false, turn:false, away:false};
+  const fr = face.detectForVideo(video, now);
+  const lm = fr.faceLandmarks?.[0];
+  if (!lm){
+    // 얼굴이 사라졌을 때: 직전에 고개를 깊이 숙였거나 화면 아래쪽에 있었으면 엎드림, 아니면 자리 비움
+    const recent = lastSeen && now - lastSeen.t < 4000;
+    const wasDown = recent && (lastSeen.bow > Math.min(0.95, S.downTh + 0.2) || lastSeen.cy > 0.65);
+    if (wasDown || (lastSeen?.facedown)) { raw.facedown = true; if (lastSeen) lastSeen.facedown = true; }
+    else raw.away = true;
+    clearMeters();
+  }
+  else {
+    const cats = fr.faceBlendshapes?.[0]?.categories || [];
+    const g = n => cats.find(c => c.categoryName === n)?.score ?? 0;
+    const blink = (g("eyeBlinkLeft") + g("eyeBlinkRight")) / 2;
+    const down = (g("eyeLookDownLeft") + g("eyeLookDownRight")) / 2;
+    const n = lm[1], l = lm[234], r = lm[454], top = lm[10], chin = lm[152];
+    const fw = Math.abs(r.x - l.x) || 1e-6;
+    const yaw = Math.abs((n.x - (l.x + r.x)/2) / fw);
+
+    // 고개 숙임: 이마~코 길이와 코~턱 길이의 비율 (숙일수록 코~턱이 짧아 보임)
+    const up = n.y - top.y, lo = chin.y - n.y;
+    const bow = Math.max(0, Math.min(1, (up/(up + lo || 1e-6) - 0.45) / 0.35));
+    reading = bow >= S.downTh;
+
+    // 움직임: 머리 위치, 고개 각도, 눈동자 좌우 움직임의 변화량 (책을 읽으면 눈동자가 계속 움직임)
+    const eyeH = (g("eyeLookOutLeft") - g("eyeLookInLeft") + g("eyeLookInRight") - g("eyeLookOutRight")) / 2;
+    if (prevPose){
+      const d = Math.hypot(n.x - prevPose.x, n.y - prevPose.y)/fw*4 + Math.abs(bow - prevPose.bow)*2 + Math.abs(eyeH - prevPose.eyeH)*1.5;
+      motion = motion*0.93 + Math.min(1, d*8)*0.07; // 약 2초 평균
+    }
+    prevPose = {x:n.x, y:n.y, bow, eyeH};
+    const still = motion < S.stillTh;
+
+    if (reading){
+      const readTh = S.readEyeTh ?? Math.min(0.95, S.eyeTh + 0.25);
+      raw.sleep = blink > readTh && still;       // 눈이 감겨 보이고 + 움직임이 멈춤
+    } else {
+      const th = down > 0.45 ? Math.min(0.95, S.eyeTh + 0.25) : S.eyeTh;
+      raw.sleep = blink > th;
+    }
+    raw.turn = yaw > S.yawTh;
+
+    let cy = 0; for (const p of lm) cy += p.y; cy /= lm.length;
+    lastSeen = {t:now, bow, cy, facedown:false};
+    if (calib) calib.push({bow, blink, motion});
+
+    $("eyeVal").textContent = Math.round(blink*100) + "%"; $("eyeBar").style.width = blink*100 + "%";
+    $("yawVal").textContent = Math.round(yaw*100) + "%"; $("yawBar").style.width = Math.min(100, yaw/0.5*100) + "%";
+    $("bowVal").textContent = Math.round(bow*100) + "%" + (reading ? " (책 보는 자세)" : ""); $("bowBar").style.width = bow*100 + "%";
+    $("motVal").textContent = Math.round(motion*100) + "%" + (still ? " (멈춤)" : ""); $("motBar").style.width = Math.min(100, motion*100) + "%";
+
+    let x0=1,y0=1,x1=0,y1=0; for (const p of lm){ x0=Math.min(x0,p.x); y0=Math.min(y0,p.y); x1=Math.max(x1,p.x); y1=Math.max(y1,p.y); }
+    ctx.strokeStyle = "#F2B632"; ctx.lineWidth = 3;
+    ctx.strokeRect(x0*canvas.width, y0*canvas.height, (x1-x0)*canvas.width, (y1-y0)*canvas.height);
+  }
+
+  if (S.usePhone && now - lastObj > 350){ lastObj = now; phones = objDet.detectForVideo(video, now).detections || []; }
+  if (!S.usePhone) phones = [];
+  raw.phone = phones.length > 0;
+  ctx.strokeStyle = "#D8453B"; ctx.lineWidth = 4;
+  phones.forEach(d => { const b = d.boundingBox; ctx.strokeRect(b.originX, b.originY, b.width, b.height); });
+
+  let reason = null, pending = null;
+  for (const k of ORDER){
+    const c = st[k];
+    if (raw[k]){
+      c.since ??= now;
+      const el = (now - c.since)/1000, need = COND[k].sec();
+      if (!c.active && el >= need){ c.active = true; c.count++; addLog(k); }
+      if (!c.active && !pending) pending = {k, left: Math.ceil(need - el)};
+    } else { c.since = null; c.active = false; }
+    if (c.active && !reason) reason = k;
+  }
+
+  if (!raw.away && !raw.facedown && !reason && !pending) focusMs += dt;
+  $("focusTime").textContent = fmtTime(focusMs);
+
+  alarmOn = !!reason; curReason = reason;
+  if (reason){ startAlarm(); setStatus("alarm", COND[reason].word, "자세를 바로 하면 경보가 멈춥니다."); }
+  else {
+    stopAlarm();
+    if (pending) setStatus("warn", "집중 중", `${COND[pending.k].short} 감지됨, ${pending.left}초 뒤 경보`);
+    else setStatus("", "집중 중", reading ? "책 보는 중으로 인식했어요." : "잘하고 있어요.");
+  }
+}
+
+
+/* ---------- 책 보는 자세 기억하기 ---------- */
+$("calibBtn").addEventListener("click", () => {
+  if (!running) return;
+  calib = []; $("calibBtn").disabled = true;
+  let left = 5; $("calibHint").textContent = `평소처럼 책을 보세요. ${left}초`;
+  const iv = setInterval(() => {
+    left--;
+    if (left > 0){ $("calibHint").textContent = `평소처럼 책을 보세요. ${left}초`; return; }
+    clearInterval(iv);
+    const data = calib || []; calib = null; $("calibBtn").disabled = !running;
+    if (data.length < 15){ $("calibHint").textContent = "얼굴이 잘 안 보였습니다. 카메라에 얼굴이 나오게 하고 다시 눌러 주세요."; return; }
+    const pct = (arr, q) => { const a = [...arr].sort((x,y) => x-y); return a[Math.floor((a.length-1)*q)]; };
+    const bowMed = pct(data.map(d => d.bow), 0.5);
+    const blinkHi = pct(data.map(d => d.blink), 0.9);
+    const motMed = pct(data.map(d => d.motion), 0.5);
+    S.downTh = Math.max(0.1, Math.min(0.8, Math.round(bowMed*0.7*20)/20));
+    S.readEyeTh = Math.max(0.5, Math.min(0.95, blinkHi + 0.15));
+    S.stillTh = Math.max(0.05, Math.min(0.6, Math.round(motMed*0.4*100)/100));
+    save();
+    $("downTh").value = S.downTh; $("downOut").textContent = Math.round(S.downTh*100) + "%";
+    $("stillTh").value = S.stillTh; $("stillOut").textContent = Math.round(S.stillTh*100) + "%";
+    updateMarks();
+    $("calibHint").textContent = bowMed < 0.15
+      ? "고개를 거의 숙이지 않는 자세로 기억했습니다. 책을 볼 때도 눈 감김 기준을 여유 있게 잡았습니다."
+      : `기억했습니다. 고개를 ${Math.round(S.downTh*100)}% 이상 숙이면 책 보는 자세로 보고, 그때는 눈이 ${Math.round(S.readEyeTh*100)}% 넘게 감겨 보이면서 움직임도 멈춰야 졸음으로 판단합니다.`;
+  }, 1000);
+});
+
+/* ---------- 시계: 감독 시간, 휴식, 수면 타이머 ---------- */
+function clockTick(){
+  const now = Date.now();
+
+  if (running){
+    if (sessEnd){
+      $("sessInfo").textContent = `남은 감독 시간 ${fmtTime(sessEnd - now)}, ${fmtClock(sessEnd)}에 끝`;
+      if (now >= sessEnd){ stopMonitoring(`목표 시간을 채웠어요. 집중 시간 ${fmtTime(focusMs)}`); playFor(alarms[0], 1500); }
+    } else $("sessInfo").textContent = "끝내기를 누를 때까지 감독합니다.";
+  } else $("sessInfo").textContent = "";
+
+  if (napEnd && !napRinging && now >= napEnd){
+    napRinging = true; napEnd = null;
+    napAudio.currentTime = 0; napAudio.play().catch(()=>{});
+    $("wakeOffBtn").hidden = false; $("napCancelBtn").hidden = true; $("napBtn").disabled = false;
+  }
+  if (napRinging) setStatus("alarm", "일어날 시간이에요", "알람 끄기를 누르면 멈춥니다.");
+  else if (napEnd) setStatus("rest", "자는 중", `${fmtTime(napEnd - now)} 뒤 알람, ${fmtClock(napEnd)}`);
+  else if (running && now < restUntil) setStatus("rest", "휴식 중", fmtTime(restUntil - now) + " 뒤 감독을 다시 시작합니다.");
+
+  ["sess","nap"].forEach(p => { if (mode(p) === "dur") refreshPicker(p); });
+  updateChaos();
+}
+const YELL = {
+  phone:["폰 내려놔!!!","지금 폰 봐?!","폰 치워!!!"],
+  sleep:["일어나!!!","자면 안 돼!!!","눈 떠!!!"],
+  turn:["어디 봐?!","앞에 봐!!!","딴짓 금지!!!"],
+  away:["어디 갔어?!","자리로 와!!!","도망 금지!!!"],
+  facedown:["엎드리지 마!!!","고개 들어!!!","일어나!!!"],
+  wake:["일어나!!!","기상!!!","시간 됐어!!!"],
+};
+function updateChaos(){
+  const on = S.useFlash && (napRinging || (alarmOn && running));
+  $("chaos").hidden = !on;
+  if (!on) return;
+  const list = napRinging ? YELL.wake : YELL[curReason] || YELL.sleep;
+  $("chaosWord").textContent = list[Math.floor(Date.now()/600) % list.length];
+  $("chaosSub").textContent = napRinging ? "알람 끄기를 눌러야 멈춥니다" : COND[curReason]?.word + ". 바로 하면 멈춥니다";
+  $("chaosOff").hidden = !napRinging;
+}
+setInterval(clockTick, 250);
+
+/* ---------- 버튼 ---------- */
+$("startBtn").addEventListener("click", async () => {
+  const r = readEnd("sess");
+  if (r.err){ $("sessHint").textContent = r.err; return; }
+  $("startBtn").disabled = true;
+  primeAudio();
+  try {
+    setStatus("", "준비 중", "카메라를 켜는 중입니다.");
+    stream = await navigator.mediaDevices.getUserMedia({video:{width:{ideal:640},height:{ideal:480},facingMode:"user"}, audio:false});
+    video.srcObject = stream; await video.play(); $("empty").hidden = true;
+    refreshOutputs();
+    if (!face){ setStatus("", "준비 중", "감지 모델을 불러오는 중입니다. 처음 한 번은 10초쯤 걸립니다."); await loadModels(); }
+    sessEnd = readEnd("sess").end; // 모델 로딩 후 기준으로 다시 계산
+    running = true; lastTick = 0; resetConds();
+    timer = setInterval(tick, 120);
+    keepAwake(true);
+    $("restBtn").disabled = false; $("stopBtn").disabled = false; $("calibBtn").disabled = false;
+  } catch (e){
+    stream?.getTracks().forEach(t => t.stop());
+    setStatus("alarm", "시작 못 함", e.name === "NotAllowedError"
+      ? "카메라 권한이 거부되었습니다. 주소창(아이패드는 설정 > Safari > 카메라)에서 허용하세요."
+      : e.name === "NotSupportedError" || !navigator.mediaDevices
+      ? "카메라를 쓰려면 https 주소나 localhost로 열어야 합니다."
+      : "오류: " + e.message);
+    $("startBtn").disabled = false;
+  }
+});
+function stopMonitoring(msg){
+  running = false; clearInterval(timer); stopAlarm(); alarmOn = false; resetConds(); restUntil = 0; sessEnd = null;
+  stream?.getTracks().forEach(t => t.stop()); video.srcObject = null; $("empty").hidden = false;
+  ctx.clearRect(0,0,canvas.width,canvas.height); clearMeters();
+  $("startBtn").disabled = false; $("restBtn").disabled = true; $("stopBtn").disabled = true; $("calibBtn").disabled = true;
+  lastSeen = null; calib = null;
+  $("restBtn").textContent = "5분 휴식";
+  if (!napEnd && !napRinging) setStatus("", "감독 끝", msg);
+  if (!busy()) keepAwake(false);
+}
+$("stopBtn").addEventListener("click", () => stopMonitoring(`집중 시간 ${fmtTime(focusMs)}`));
+$("restBtn").addEventListener("click", () => {
+  if (restUntil){ restUntil = Date.now() - 1; return; }
+  restUntil = Date.now() + 5*60*1000; $("restBtn").textContent = "휴식 끝내기";
+});
+
+$("napBtn").addEventListener("click", () => {
+  const r = readEnd("nap");
+  if (r.err){ $("napWarn").hidden = false; $("napWarn").textContent = r.err; return; }
+  $("napWarn").hidden = true;
+  primeAudio();
+  napEnd = r.end; napRinging = false;
+  stopAlarm(); alarmOn = false; resetConds();
+  $("napBtn").disabled = true; $("napCancelBtn").hidden = false;
+  keepAwake(true);
+  clockTick();
+});
+function endNap(){
+  napEnd = null; napRinging = false;
+  napAudio.pause(); napAudio.currentTime = 0;
+  $("wakeOffBtn").hidden = true; $("napCancelBtn").hidden = true; $("napBtn").disabled = false;
+  lastTick = 0;
+  if (running) setStatus("", "집중 중", "다시 감독을 시작합니다.");
+  else setStatus("", "대기 중", "");
+  if (!busy()) keepAwake(false);
+}
+$("napCancelBtn").addEventListener("click", endNap);
+$("wakeOffBtn").addEventListener("click", endNap);
+$("chaosOff").addEventListener("click", endNap);
+</script>
+</body>
+</html>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=IBM+Plex+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
